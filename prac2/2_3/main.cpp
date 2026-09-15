@@ -15,7 +15,7 @@ struct Camera
 
   int megapixels;
 
-  double sensor_size; 
+  double sensor_size;
   double weight;
   double price;
 
@@ -52,7 +52,8 @@ std::ostream& operator<<(std::ostream& os, const Camera& c)
   return os;
 }
 
-void print_queue(priority_queue<Camera>& q)
+template <class Q>
+void print_queue(Q& q)
 {
   while (!q.empty())
   {

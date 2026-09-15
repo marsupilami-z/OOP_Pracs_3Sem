@@ -66,24 +66,24 @@ public:
   virtual ~LinkedListParent() {}
 };
 
-template <typename ValueType>
+template <typename T>
 class ListIterator
 {
 public:
   using iterator_category = std::bidirectional_iterator_tag;
-  using value_type = ValueType;
-  using difference_type = std::ptrdiff_t;
-  using pointer = ValueType*;
-  using reference = ValueType&;
+  using value_type        = T;
+  using difference_type   = std::ptrdiff_t;
+  using pointer           = T*;
+  using reference         = T&;
 
   ListIterator() { ptr = nullptr; }
-  ListIterator(Element<ValueType>* p) { ptr = p; }
+  ListIterator(Element<T>* p) { ptr = p; }
   ListIterator(const ListIterator& it) { ptr = it.ptr; }
 
   bool operator!=(ListIterator const& other) const { return ptr != other.ptr; }
   bool operator==(ListIterator const& other) const { return ptr == other.ptr; }
 
-  Element<ValueType>& operator*()
+  Element<T>& operator*()
   {
     if (ptr == nullptr)
       throw std::runtime_error("Iterator is not bound to any element");
@@ -91,16 +91,16 @@ public:
   }
 
   ListIterator& operator++() { ptr = ptr->getNext(); return *this; }
-  ListIterator& operator++(int) { ptr = ptr->getNext(); return *this; }
-
   ListIterator& operator--() { ptr = ptr->getPrevious(); return *this; }
+
+  ListIterator& operator++(int) { ptr = ptr->getNext(); return *this; }
   ListIterator& operator--(int) { ptr = ptr->getPrevious(); return *this; }
 
   ListIterator& operator=(const ListIterator& it) { ptr = it.ptr; return *this; }
-  ListIterator& operator=(Element<ValueType>* p) { ptr = p; return *this; }
+  ListIterator& operator=(Element<T>* p) { ptr = p; return *this; }
 
 private:
-  Element<ValueType>* ptr;
+  Element<T>* ptr;
 };
 
 template <class T>
@@ -120,17 +120,11 @@ public:
     }
   }
 
-  ListIterator<T> begin()
-  {
-    ListIterator<T> it = this->head;
-    return it;
-  }
+  ListIterator<T> begin() { return ListIterator<T>(this->head); }
+  ListIterator<T> end()   { return ListIterator<T>(nullptr); }
 
-  ListIterator<T> end()
-  {
-    ListIterator<T> it = nullptr;
-    return it;
-  }
+  ListIterator<T> rbegin() { return ListIterator<T>(this->tail); }
+  ListIterator<T> rend()   { return ListIterator<T>(nullptr); }
 };
 
 template <class T>
@@ -175,10 +169,17 @@ public:
 };
 
 template <class T>
-class SortedStack : public Stack<T>
+class SortedStack : protected Stack<T>
 {
 public:
   SortedStack() : Stack<T>() {}
+
+  ListIterator<T> begin()  { return Stack<T>::begin(); }
+  ListIterator<T> end()    { return Stack<T>::end(); }
+  ListIterator<T> rbegin() { return Stack<T>::rbegin(); }
+  ListIterator<T> rend()   { return Stack<T>::rend(); }
+  int Number() const       { return Stack<T>::Number(); }
+  T pop()                  { return Stack<T>::pop(); }
 
   Element<T>* push(T value) override
   {
@@ -192,31 +193,30 @@ public:
       return elem;
     }
 
-    Element<T>* current = this->head;
-    while (current != nullptr && current->getValue() < value)
-    {
-      current = current->getNext();
-    }
+    ListIterator<T> it = this->begin();
+    while (it != this->end() && (*it).getValue() < value)
+      ++it;
 
-    if (current == nullptr)
+    if (it == this->end())
     {
       elem->setPrevious(this->tail);
       this->tail->setNext(elem);
       this->tail = elem;
     }
-    else if (current == this->head)
-    {
-      elem->setNext(this->head);
-      this->head->setPrevious(elem);
-      this->head = elem;
-    }
     else
     {
-      Element<T>* prev = current->getPrevious();
-      elem->setNext(current);
+      Element<T>& cur  = *it;
+      Element<T>* prev = cur.getPrevious();
+
+      elem->setNext(&cur);
       elem->setPrevious(prev);
-      prev->setNext(elem);
-      current->setPrevious(elem);
+
+      if (prev != nullptr)
+        prev->setNext(elem);
+      else
+        this->head = elem;
+
+      cur.setPrevious(elem);
     }
 
     this->num++;
@@ -224,47 +224,29 @@ public:
   }
 };
 
-template <class T, class P>
-Stack<T> filter(const Stack<T>& lst, P pred)
+template <class Result, class In, class P>
+Result filter(In& lst, P pred)
 {
-  Stack<T> result;
-  Element<T>* current = lst.getBegin();
-  while (current != nullptr)
-  {
-    if (pred(current->getValue()))
-    {
-      result.push(current->getValue());
-    }
-    current = current->getNext();
-  }
+  Result result;
+  for (auto it = lst.begin(); it != lst.end(); ++it)
+    if (pred((*it).getValue()))
+      result.push((*it).getValue());
   return result;
 }
 
-template <class T>
-void print_stack(Stack<T>& stack)
+template <class Container>
+void print_stack(Container& stack)
 {
-  for (ListIterator<T> it = stack.begin(); it != stack.end(); ++it)
-  {
-    cout << *it << " ";
-  }
+  for (auto it = stack.begin(); it != stack.end(); ++it)
+    cout << (*it).getValue() << " ";
   cout << "\n";
 }
 
-template <class T>
-void print_stack_reverse(Stack<T>& stack)
+template <class Container>
+void print_stack_reverse(Container& stack)
 {
-  if (stack.getEnd() == nullptr)
-    return;
-
-  ListIterator<T> it = stack.getEnd();
-  while (true)
-  {
-    cout << *it << " ";
-    Element<T>* prev = (*it).getPrevious();
-    if (prev == nullptr)
-      break;
-    it = prev;
-  }
+  for (auto it = stack.rbegin(); it != stack.rend(); --it)
+    cout << (*it).getValue() << " ";
   cout << "\n";
 }
 
@@ -293,7 +275,7 @@ int main()
   print_stack(ss);
   print_stack_reverse(ss);
 
-  Stack<int> evens = filter(ss, is_even);
+  Stack<int> evens = filter<Stack<int>>(ss, is_even);
   print_stack(evens);
 
   try

@@ -36,7 +36,6 @@ struct Camera
   {
     return other < *this;
   }
-
 };
 
 std::ostream& operator<<(std::ostream& os, const Camera& c)
@@ -48,7 +47,7 @@ std::ostream& operator<<(std::ostream& os, const Camera& c)
      << ", " << c.weight << "g"
      << ", " << c.memory_card
      << ", " << c.price << "$]";
-     
+
   return os;
 }
 
@@ -59,11 +58,11 @@ private:
   T value;
 
 public:
-  T getValue() { return value; }
+  T getValue() const { return value; }
   void setValue(T v) { value = v; }
 
-  bool operator<(Node N) { return value < N.getValue(); }
-  bool operator>(Node N) { return value > N.getValue(); }
+  bool operator<(const Node& N) const { return value < N.value; }
+  bool operator>(const Node& N) const { return value > N.value; }
 };
 
 template <class T>
@@ -81,8 +80,8 @@ private:
   int size;
 
 public:
-  int getCapacity() { return size; }
-  int getCount() { return len; }
+  int getCapacity() const { return size; }
+  int getCount() const { return len; }
 
   Node<T>& operator[](int index) { return arr[index]; }
 
@@ -105,15 +104,10 @@ public:
     arr[index2] = temp;
   }
 
-  void Copy(Node<T>* dest, Node<T>* source)
-  {
-    dest->setValue(source->getValue());
-  }
+  int GetLeftChildIndex(int index) const { return index * 2 + 1; }
+  int GetRightChildIndex(int index) const { return index * 2 + 2; }
 
-  int GetLeftChildIndex(int index) { return index * 2 + 1; }
-  int GetRightChildIndex(int index) { return index * 2 + 2; }
-
-  int GetParentIndex(int index)
+  int GetParentIndex(int index) const
   {
     if (index % 2 == 0) return index / 2 - 1;
     return index / 2;
@@ -149,22 +143,13 @@ public:
     }
   }
 
-  void push(Node<T>* N)
+  void push(T v)
   {
     if (len >= size) return;
 
-    Copy(&arr[len], N);
+    arr[len].setValue(v);
     len++;
     SiftUp();
-  }
-
-  void push(T v)
-  {
-    Node<T>* N = new Node<T>;
-    
-    N->setValue(v);
-    push(N);
-    delete N;
   }
 
   T ExtractMax()
@@ -230,7 +215,6 @@ int main()
   heap.push(Camera("Panasonic","Lumix G9",  "Mirrorless", 17.3, 20, 658, "SD",        1300));
   heap.push(Camera("Sony",     "A7 III",    "Mirrorless", 35.6, 24, 650, "SD",        1500));
 
-  cout << "===== ExtractMax (порядок убывания приоритета) =====\n";
   while (heap.getCount() > 0)
   {
     cout << heap.ExtractMax() << "\n";

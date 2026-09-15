@@ -39,7 +39,20 @@ struct Camera
     if (megapixels != other.megapixels) return megapixels < other.megapixels;
     if (sensor_size != other.sensor_size) return sensor_size < other.sensor_size;
     if (weight != other.weight) return weight < other.weight;
+
     return price < other.price;
+  }
+
+  bool operator==(const Camera& other) const
+  {
+    return producer == other.producer
+        && model == other.model
+        && type == other.type
+        && memory_card == other.memory_card
+        && megapixels == other.megapixels
+        && sensor_size == other.sensor_size
+        && weight == other.weight
+        && price == other.price;
   }
 };
 
@@ -55,61 +68,51 @@ std::ostream& operator<<(std::ostream& os, const Camera& c)
   return os;
 }
 
-string make_key(const Camera& c)
+template <class K, class V>
+void insert_element(map<K, V>& m,
+                    const typename map<K, V>::key_type& key,
+                    const V& value)
 {
-  return c.producer + " " + c.model;     
-}
-
-void insert_camera(map<string, Camera>& m, const Camera& c)
-{
-  string key = make_key(c);
-
   if (m.find(key) != m.end())
-    throw std::runtime_error("Key already exists: " + key);
-
-  m[key] = c;
+    throw std::runtime_error("Key already exists");
+  m[key] = value;
 }
 
-map<string, Camera>::iterator find_by_key(map<string, Camera>& m, const string& key)
+template <class K, class V>
+typename map<K, V>::iterator find_by_key(map<K, V>& m, const typename map<K, V>::key_type& key)
 {
   return m.find(key);
 }
 
-vector<map<string, Camera>::iterator> find_by_value(map<string, Camera>& m, const Camera& value)
+template <class K, class V, class Pred>
+vector<typename map<K, V>::iterator> find_by_value(map<K, V>& m, Pred pred)
 {
-  vector<map<string, Camera>::iterator> result;
+  vector<typename map<K, V>::iterator> result;
 
   for (auto it = m.begin(); it != m.end(); ++it)
-  {
-    if (it->second.producer == value.producer
-        && it->second.model == value.model
-        && it->second.megapixels == value.megapixels)
-    {
+    if (pred(it->second))
       result.push_back(it);
-    }
-  }
 
   return result;
 }
 
-template <class P>
-map<string, Camera> filter(const map<string, Camera>& m, P pred)
+template <class K, class V, class P>
+map<K, V> filter(const map<K, V>& m, P pred)
 {
-  map<string, Camera> result;
+  map<K, V> result;
 
   for (auto it = m.begin(); it != m.end(); ++it)
-  {
     if (pred(it->second))
       result[it->first] = it->second;
-  }
 
   return result;
 }
 
-vector<Camera> distinct_values(map<string, Camera>& m)
+template <class K, class V>
+vector<V> distinct_values(const map<K, V>& m)
 {
-  set<Camera> seen;
-  vector<Camera> result;
+  set<V> seen;
+  vector<V> result;
 
   for (auto it = m.begin(); it != m.end(); ++it)
   {
@@ -123,12 +126,11 @@ vector<Camera> distinct_values(map<string, Camera>& m)
   return result;
 }
 
-void print_map(map<string, Camera>& m)
+template <class K, class V>
+void print_map(const map<K, V>& m)
 {
   for (auto it = m.begin(); it != m.end(); ++it)
-  {
     cout << "Key: " << it->first << ", value: " << it->second << "\n";
-  }
   cout << "\n";
 }
 
@@ -136,12 +138,12 @@ int main()
 {
   map<string, Camera> cameras;
 
-  insert_camera(cameras, Camera("Canon",    "EOS R5",    "Mirrorless", 35.9, 45, 738, "CFexpress", 3900));
-  insert_camera(cameras, Camera("Nikon",    "Z6",        "Mirrorless", 35.9, 24, 675, "XQD",       2000));
-  insert_camera(cameras, Camera("Sony",     "A7 III",    "Mirrorless", 35.6, 24, 650, "SD",        1800));
-  insert_camera(cameras, Camera("Canon",    "EOS 90D",   "DSLR",       22.3, 32, 701, "SD",        1200));
-  insert_camera(cameras, Camera("Fujifilm", "X-T4",      "Mirrorless", 23.5, 26, 607, "SD",        1700));
-  insert_camera(cameras, Camera("Panasonic","Lumix G9",  "Mirrorless", 17.3, 20, 658, "SD",        1300));
+  insert_element(cameras, "Canon EOS R5",   Camera("Canon",    "EOS R5",    "Mirrorless", 35.9, 45, 738, "CFexpress", 3900));
+  insert_element(cameras, "Nikon Z6",       Camera("Nikon",    "Z6",        "Mirrorless", 35.9, 24, 675, "XQD",       2000));
+  insert_element(cameras, "Sony A7 III",    Camera("Sony",     "A7 III",    "Mirrorless", 35.6, 24, 650, "SD",        1800));
+  insert_element(cameras, "Canon EOS 90D",  Camera("Canon",    "EOS 90D",   "DSLR",       22.3, 32, 701, "SD",        1200));
+  insert_element(cameras, "Fujifilm X-T4",  Camera("Fujifilm", "X-T4",      "Mirrorless", 23.5, 26, 607, "SD",        1700));
+  insert_element(cameras, "Panasonic G9",   Camera("Panasonic","Lumix G9",  "Mirrorless", 17.3, 20, 658, "SD",        1300));
 
   print_map(cameras);
 
@@ -149,9 +151,10 @@ int main()
   if (found != cameras.end())
     cout << "Found by key: " << found->second << "\n\n";
 
-  Camera probe("Canon", "EOS R5", "", 0, 45);
-  auto found_v = find_by_value(cameras, probe);
-  cout << "Found by value: " << found_v.size() << " element(s)\n\n";
+  auto found_v = find_by_value(cameras, [](const Camera& c) {
+    return c.megapixels == 45;
+  });
+  cout << "Found by value (45MP): " << found_v.size() << " element(s)\n\n";
 
   int threshold = 30;
   auto pred = [threshold](const Camera& c) { return c.megapixels > threshold; };
@@ -167,7 +170,8 @@ int main()
 
   try
   {
-    insert_camera(cameras, Camera("Sony", "A7 III", "Mirrorless", 35.6, 24, 650, "SD", 1800));
+    insert_element(cameras, "Sony A7 III",
+                   Camera("Sony", "A7 III", "Mirrorless", 35.6, 24, 650, "SD", 1800));
   }
   catch (std::runtime_error& e)
   {

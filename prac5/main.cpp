@@ -2,6 +2,7 @@
 #include <vector>
 #include <queue>
 #include <stack>
+#include <functional>
 
 using std::cout;
 using std::vector;
@@ -9,6 +10,7 @@ using std::priority_queue;
 using std::queue;
 using std::stack;
 using std::pair;
+using std::greater;
 
 const int N = 9;
 const int INF = 9999;
@@ -25,17 +27,17 @@ vector<vector<int>> mat = {
   { 7, 6, 0, 1, 5, 3, 1, 3, 0 }
 };
 
-vector<vector<int>> mstMat(N, vector<int>(N, 0));
-
-void makeMST()
+vector<vector<int>> makeMST()
 {
+  vector<vector<int>> mst(N, vector<int>(N, 0));
+
   vector<int> key(N, INF);
   vector<int> parent(N, -1);
   vector<int> used(N, 0);
 
   key[0] = 0;
 
-  priority_queue<pair<int,int>> pq;
+  priority_queue<pair<int,int>, vector<pair<int,int>>, greater<pair<int,int>>> pq;
   pq.push({0, 0});
 
   while (!pq.empty())
@@ -54,7 +56,7 @@ void makeMST()
       {
         key[v] = mat[u][v];
         parent[v] = u;
-        pq.push({-key[v], v});
+        pq.push({key[v], v});
       }
     }
   }
@@ -65,10 +67,12 @@ void makeMST()
 
     if (p != -1)
     {
-      mstMat[p][v] = key[v];
-      mstMat[v][p] = key[v];
+      mst[p][v] = key[v];
+      mst[v][p] = key[v];
     }
   }
+
+  return mst;
 }
 
 vector<int> dfs(vector<vector<int>>& g, int start)
@@ -107,7 +111,7 @@ vector<int> dijkstra(int start)
   vector<int> dist(N, INF);
   dist[start] = 0;
 
-  priority_queue<pair<int,int>> pq;
+  priority_queue<pair<int,int>, vector<pair<int,int>>, greater<pair<int,int>>> pq;
   pq.push({0, start});
 
   while (!pq.empty())
@@ -115,7 +119,7 @@ vector<int> dijkstra(int start)
     pair<int,int> top = pq.top();
     pq.pop();
 
-    int d = -top.first;
+    int d = top.first;
     int u = top.second;
 
     if (d > dist[u]) continue;
@@ -125,7 +129,7 @@ vector<int> dijkstra(int start)
       if (mat[u][v] > 0 && dist[u] + mat[u][v] < dist[v])
       {
         dist[v] = dist[u] + mat[u][v];
-        pq.push({-dist[v], v});
+        pq.push({dist[v], v});
       }
     }
   }
@@ -173,7 +177,7 @@ void printVector(vector<int>& v)
   cout << "\n";
 }
 
-void printMST()
+void printMST(vector<vector<int>>& mstMat)
 {
   for (int u = 0; u < N; u++)
   {
@@ -187,10 +191,10 @@ void printMST()
 
 int main()
 {
-  makeMST();
+  vector<vector<int>> mstMat = makeMST();
 
   cout << "\n";
-  printMST();
+  printMST(mstMat);
 
   cout << "\n\n";
   vector<int> dfsMST = dfs(mstMat, 0);

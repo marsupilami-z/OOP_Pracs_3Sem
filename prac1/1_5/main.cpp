@@ -68,24 +68,24 @@ public:
   virtual ~LinkedListParent() {}
 };
 
-template <typename ValueType>
+template <typename T>
 class ListIterator
 {
 public:
   using iterator_category = std::bidirectional_iterator_tag;
-  using value_type = ValueType;
+  using value_type = T;
   using difference_type = std::ptrdiff_t;
-  using pointer = ValueType*;
-  using reference = ValueType&;
+  using pointer = T*;
+  using reference = T&;
 
   ListIterator() { ptr = nullptr; }
-  ListIterator(Element<ValueType>* p) { ptr = p; }
+  ListIterator(Element<T>* p) { ptr = p; }
   ListIterator(const ListIterator& it) { ptr = it.ptr; }
 
   bool operator!=(ListIterator const& other) const { return ptr != other.ptr; }
   bool operator==(ListIterator const& other) const { return ptr == other.ptr; }
 
-  Element<ValueType>& operator*()
+  Element<T>& operator*()
   {
     if (ptr == nullptr)
       throw std::runtime_error("Iterator is not bound to any element");
@@ -93,16 +93,16 @@ public:
   }
 
   ListIterator& operator++() { ptr = ptr->getNext(); return *this; }
-  ListIterator& operator++(int) { ptr = ptr->getNext(); return *this; }
-
   ListIterator& operator--() { ptr = ptr->getPrevious(); return *this; }
+
+  ListIterator& operator++(int) { ptr = ptr->getNext(); return *this; }
   ListIterator& operator--(int) { ptr = ptr->getPrevious(); return *this; }
 
   ListIterator& operator=(const ListIterator& it) { ptr = it.ptr; return *this; }
-  ListIterator& operator=(Element<ValueType>* p) { ptr = p; return *this; }
+  ListIterator& operator=(Element<T>* p) { ptr = p; return *this; }
 
 private:
-  Element<ValueType>* ptr;
+  Element<T>* ptr;
 };
 
 template <class T>
@@ -122,17 +122,11 @@ public:
     }
   }
 
-  ListIterator<T> begin()
-  {
-    ListIterator<T> it = this->head;
-    return it;
-  }
+  ListIterator<T> begin() { return ListIterator<T>(this->head); }
+  ListIterator<T> end()   { return ListIterator<T>(nullptr); }
 
-  ListIterator<T> end()
-  {
-    ListIterator<T> it = nullptr;
-    return it;
-  }
+  ListIterator<T> rbegin() { return ListIterator<T>(this->tail); }
+  ListIterator<T> rend()   { return ListIterator<T>(nullptr); }
 };
 
 template <class T>
@@ -177,10 +171,18 @@ public:
 };
 
 template <class T>
-class SortedStack : public Stack<T>
+class SortedStack : protected Stack<T>
 {
 public:
   SortedStack() : Stack<T>() {}
+
+  ListIterator<T> begin()  { return Stack<T>::begin(); }
+  ListIterator<T> end()    { return Stack<T>::end(); }
+  ListIterator<T> rbegin() { return Stack<T>::rbegin(); }
+  ListIterator<T> rend()   { return Stack<T>::rend(); }
+  int Number() const       { return Stack<T>::Number(); }
+
+  T pop() { return Stack<T>::pop(); }
 
   Element<T>* push(T value) override
   {
@@ -195,12 +197,8 @@ public:
     }
 
     ListIterator<T> it = this->begin();
-    Element<T>* current = nullptr;
-
     while (it != this->end() && (*it).getValue() < value)
-    {
       ++it;
-    }
 
     if (it == this->end())
     {
@@ -210,10 +208,10 @@ public:
     }
     else
     {
-      current = &(*it);
-      Element<T>* prev = current->getPrevious();
+      Element<T>& cur  = *it;
+      Element<T>* prev = cur.getPrevious();
 
-      elem->setNext(current);
+      elem->setNext(&cur);
       elem->setPrevious(prev);
 
       if (prev != nullptr)
@@ -221,32 +219,11 @@ public:
       else
         this->head = elem;
 
-      current->setPrevious(elem);
+      cur.setPrevious(elem);
     }
 
     this->num++;
     return elem;
-  }
-
-  T pop() override
-  {
-    if (this->head == nullptr)
-      return T();
-
-    ListIterator<T> it = this->begin();
-    T value = (*it).getValue();
-
-    Element<T>* next = this->head->getNext();
-    delete this->head;
-    this->head = next;
-
-    if (next != nullptr)
-      next->setPrevious(nullptr);
-    else
-      this->tail = nullptr;
-
-    this->num--;
-    return value;
   }
 };
 
@@ -301,13 +278,11 @@ std::ostream& operator<<(std::ostream& os, const Camera& c)
   return os;
 }
 
-template <class T>
-void print_stack(SortedStack<T>& stack)
+template <class Container>
+void print_stack(Container& stack)
 {
-  for (ListIterator<T> it = stack.begin(); it != stack.end(); ++it)
-  {
-    cout << *it << "\n";
-  }
+  for (auto it = stack.begin(); it != stack.end(); ++it)
+    cout << (*it).getValue() << "\n";
   cout << "\n";
 }
 

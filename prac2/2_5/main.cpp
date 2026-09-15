@@ -1,5 +1,6 @@
 #include <iostream>
 #include <string>
+#include <stdexcept>
 
 using std::cout;
 using std::string;
@@ -57,6 +58,32 @@ public:
 };
 
 template <class T>
+class ListIterator
+{
+private:
+  Element<T>* ptr;
+
+public:
+  ListIterator() { ptr = nullptr; }
+  ListIterator(Element<T>* p) { ptr = p; }
+  ListIterator(const ListIterator& it) { ptr = it.ptr; }
+
+  bool operator!=(ListIterator const& other) const { return ptr != other.ptr; }
+  bool operator==(ListIterator const& other) const { return ptr == other.ptr; }
+
+  Element<T>& operator*()
+  {
+    if (ptr == nullptr)
+      throw std::runtime_error("Iterator is not bound to any element");
+
+    return *ptr;
+  }
+
+  ListIterator& operator++() { ptr = ptr->getNext(); return *this; }
+  ListIterator& operator--() { ptr = ptr->getPrevious(); return *this; }
+};
+
+template <class T>
 class IteratedLinkedList : public LinkedListParent<T>
 {
 public:
@@ -72,6 +99,10 @@ public:
       current = next;
     }
   }
+
+
+  ListIterator<T> begin() { return ListIterator<T>(this->head); }
+  ListIterator<T> end()   { return ListIterator<T>(nullptr); }
 };
 
 template <class T>
@@ -91,7 +122,6 @@ public:
 
     this->tail = elem;
     this->num++;
-
     return elem;
   }
 
@@ -116,10 +146,15 @@ public:
 };
 
 template <class T>
-class SortedStack : public Stack<T>
+class SortedStack : protected Stack<T>
 {
 public:
   SortedStack() : Stack<T>() {}
+
+  ListIterator<T> begin()  { return Stack<T>::begin(); }
+  ListIterator<T> end()    { return Stack<T>::end(); }
+  int Number() const       { return Stack<T>::Number(); }
+  T pop()                  { return Stack<T>::pop(); }
 
   Element<T>* push(T value) override
   {
@@ -133,29 +168,30 @@ public:
       return elem;
     }
 
-    Element<T>* current = this->head;
-    while (current != nullptr && current->getValue() < value)
-      current = current->getNext();
+    ListIterator<T> it = this->begin();
+    while (it != this->end() && (*it).getValue() < value)
+      ++it;
 
-    if (current == nullptr)
+    if (it == this->end())
     {
       elem->setPrevious(this->tail);
       this->tail->setNext(elem);
       this->tail = elem;
     }
-    else if (current == this->head)
-    {
-      elem->setNext(this->head);
-      this->head->setPrevious(elem);
-      this->head = elem;
-    }
     else
     {
-      Element<T>* prev = current->getPrevious();
-      elem->setNext(current);
+      Element<T>& cur  = *it;
+      Element<T>* prev = cur.getPrevious();
+
+      elem->setNext(&cur);
       elem->setPrevious(prev);
-      prev->setNext(elem);
-      current->setPrevious(elem);
+
+      if (prev != nullptr)
+        prev->setNext(elem);
+      else
+        this->head = elem;
+
+      cur.setPrevious(elem);
     }
 
     this->num++;
@@ -187,6 +223,7 @@ struct Camera
     if (price != other.price) return price < other.price;
     if (weight != other.weight) return weight < other.weight;
     if (sensor_size != other.sensor_size) return sensor_size < other.sensor_size;
+
     return model > other.model;
   }
 };
@@ -209,9 +246,11 @@ class Node
 protected:
   K key;
   V data;
+
   Node* left;
   Node* right;
   Node* parent;
+
   int height;
 
 public:
@@ -219,9 +258,11 @@ public:
   {
     key = k;
     data = d;
+
     left = nullptr;
     right = nullptr;
     parent = nullptr;
+
     height = 1;
   }
 
@@ -242,6 +283,68 @@ public:
 
   Node* getParent() { return parent; }
   void setParent(Node* n) { parent = n; }
+};
+
+template <class K, class V>
+class TreeIterator
+{
+private:
+  Node<K, V>* current;
+
+public:
+  TreeIterator(Node<K, V>* n = nullptr) : current(n) {}
+
+  Node<K, V>& operator*()  { return *current; }
+  Node<K, V>* operator->() { return current; }
+
+  bool operator==(const TreeIterator& other) const { return current == other.current; }
+  bool operator!=(const TreeIterator& other) const { return current != other.current; }
+
+  TreeIterator& operator++()
+  {
+    if (current == nullptr) return *this;
+
+    if (current->getRight() != nullptr)
+    {
+      current = current->getRight();
+      while (current->getLeft() != nullptr)
+        current = current->getLeft();
+    }
+    else
+    {
+      Node<K, V>* p = current->getParent();
+      while (p != nullptr && current == p->getRight())
+      {
+        current = p;
+        p = p->getParent();
+      }
+      current = p;
+    }
+    return *this;
+  }
+
+  TreeIterator& operator--()
+  {
+    if (current == nullptr) return *this;
+
+    if (current->getLeft() != nullptr)
+    {
+      current = current->getLeft();
+      while (current->getRight() != nullptr)
+        current = current->getRight();
+    }
+    else
+    {
+      Node<K, V>* p = current->getParent();
+      while (p != nullptr && current == p->getLeft())
+      {
+        current = p;
+        p = p->getParent();
+      }
+      current = p;
+    }
+    return *this;
+  }
 };
 
 template <class K, class V>
@@ -375,11 +478,49 @@ public:
 
   virtual void Add(K key, V data)
   {
+    if (Find(key, root) != nullptr) return;
+
     Node<K, V>* N = new Node<K, V>(key, data);
     root = Add_R(N, root);
 
     if (root) root->setParent(nullptr);
   }
+
+  virtual Node<K, V>* Min(Node<K, V>* Current = nullptr)
+  {
+    if (root == nullptr) return nullptr;
+    if (Current == nullptr) Current = root;
+
+    while (Current->getLeft() != nullptr)
+      Current = Current->getLeft();
+
+    return Current;
+  }
+
+  virtual Node<K, V>* Max(Node<K, V>* Current = nullptr)
+  {
+    if (root == nullptr) return nullptr;
+    if (Current == nullptr) Current = root;
+
+    while (Current->getRight() != nullptr)
+      Current = Current->getRight();
+
+    return Current;
+  }
+
+  virtual Node<K, V>* Find(K key, Node<K, V>* Current)
+  {
+    if (Current == nullptr) return nullptr;
+    if (Current->getKey() == key) return Current;
+    if (Current->getKey() > key) return Find(key, Current->getLeft());
+
+    return Find(key, Current->getRight());
+  }
+
+  TreeIterator<K, V> begin()  { return TreeIterator<K, V>(Min()); }
+  TreeIterator<K, V> end()    { return TreeIterator<K, V>(nullptr); }
+  TreeIterator<K, V> rbegin() { return TreeIterator<K, V>(Max()); }
+  TreeIterator<K, V> rend()   { return TreeIterator<K, V>(nullptr); }
 
   void destroy(Node<K, V>* n)
   {
@@ -475,13 +616,8 @@ string make_key(const Camera& c)
 template <class T>
 void print_stack(SortedStack<T>& stack)
 {
-  Element<T>* current = stack.getBegin();
-
-  while (current != nullptr)
-  {
-    cout << "  " << current->getValue() << "\n";
-    current = current->getNext();
-  }
+  for (ListIterator<T> it = stack.begin(); it != stack.end(); ++it)
+    cout << "  " << (*it).getValue() << "\n";
 }
 
 int main()
@@ -502,17 +638,23 @@ int main()
   tree.Add(make_key(c5), c5);
   tree.Add(make_key(c6), c6);
 
-  cout << "===== Sony A7 III =====\n";
+  cout << "Sony A7 III\n";
   SortedStack<Camera> sony = tree["Sony A7 III"];
   print_stack(sony);
 
-  cout << "===== Canon EOS R5 =====\n";
+  cout << "Canon EOS R5\n";
   SortedStack<Camera> canon = tree["Canon EOS R5"];
   print_stack(canon);
 
-  cout << "===== NonExistent =====\n";
+  cout << "NonExistent \n";
   SortedStack<Camera> none = tree["Some Unknown Camera"];
   cout << "  count: " << none.Number() << "\n";
+
+  for (TreeIterator<string, Camera> it = tree.begin(); it != tree.end(); ++it)
+    cout << "Key: " << it->getKey() << ", value: " << it->getData() << "\n";
+
+  for (TreeIterator<string, Camera> it = tree.rbegin(); it != tree.rend(); --it)
+    cout << "Key: " << it->getKey() << ", value: " << it->getData() << "\n";
 
   return 0;
 }

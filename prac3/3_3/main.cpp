@@ -89,7 +89,7 @@ private:
     parent->degree++;
   }
 
-  void Merge()
+  void Consolidate()
   {
     if (roots.empty()) return;
 
@@ -205,7 +205,7 @@ public:
     count--;
 
     if (!roots.empty())
-      Merge();
+      Consolidate();
     else
       maxNode = nullptr;
 
