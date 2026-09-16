@@ -42,32 +42,6 @@ std::ostream& operator<<(std::ostream& ustream, Element<T>& obj)
   return ustream;
 }
 
-template <class T>
-class LinkedListParent
-{
-protected:
-  Element<T>* head;
-  Element<T>* tail;
-  int num;
-
-public:
-  virtual int Number() const { return num; }
-  virtual Element<T>* getBegin() const { return head; }
-  virtual Element<T>* getEnd() const { return tail; }
-
-  LinkedListParent()
-  {
-    head = nullptr;
-    tail = nullptr;
-    num = 0;
-  }
-
-  virtual Element<T>* push(T value) = 0;
-  virtual T pop() = 0;
-
-  virtual ~LinkedListParent() {}
-};
-
 template <typename T>
 class ListIterator
 {
@@ -95,14 +69,57 @@ public:
   ListIterator& operator++() { ptr = ptr->getNext(); return *this; }
   ListIterator& operator--() { ptr = ptr->getPrevious(); return *this; }
 
-  ListIterator& operator++(int) { ptr = ptr->getNext(); return *this; }
-  ListIterator& operator--(int) { ptr = ptr->getPrevious(); return *this; }
+  ListIterator operator++(int)
+  {
+    ListIterator tmp(*this);
+    ptr = ptr->getNext();
+    return tmp;
+  }
+
+  ListIterator operator--(int)
+  {
+    ListIterator tmp(*this);
+    ptr = ptr->getPrevious();
+    return tmp;
+  }
 
   ListIterator& operator=(const ListIterator& it) { ptr = it.ptr; return *this; }
   ListIterator& operator=(Element<T>* p) { ptr = p; return *this; }
 
+  Element<T>* getPtr() const { return ptr; }
+
 private:
   Element<T>* ptr;
+};
+
+template <class T>
+class LinkedListParent
+{
+protected:
+  Element<T>* head;
+  Element<T>* tail;
+  int num;
+
+public:
+  LinkedListParent()
+  {
+    head = nullptr;
+    tail = nullptr;
+    num = 0;
+  }
+
+  virtual int Number() const { return num; }
+
+  virtual ListIterator<T> begin() = 0;
+  virtual ListIterator<T> end() = 0;
+
+  virtual ListIterator<T> insert(ListIterator<T> pos, const T& value) = 0;
+  virtual ListIterator<T> erase(ListIterator<T> pos) = 0;
+
+  virtual ListIterator<T> push(const T& value) = 0;
+  virtual T pop() = 0;
+
+  virtual ~LinkedListParent() {}
 };
 
 template <class T>
@@ -122,11 +139,52 @@ public:
     }
   }
 
-  ListIterator<T> begin() { return ListIterator<T>(this->head); }
-  ListIterator<T> end()   { return ListIterator<T>(nullptr); }
+  ListIterator<T> begin() override { return ListIterator<T>(this->head); }
+  ListIterator<T> end()   override { return ListIterator<T>(nullptr); }
 
   ListIterator<T> rbegin() { return ListIterator<T>(this->tail); }
   ListIterator<T> rend()   { return ListIterator<T>(nullptr); }
+
+  ListIterator<T> insert(ListIterator<T> pos, const T& value) override
+  {
+    Element<T>* cur  = pos.getPtr();
+    Element<T>* prev = (cur != nullptr) ? cur->getPrevious() : this->tail;
+
+    Element<T>* elem = new Element<T>(value, cur, prev);
+
+    if (prev != nullptr)
+      prev->setNext(elem);
+    else
+      this->head = elem;
+
+    if (cur != nullptr)
+      cur->setPrevious(elem);
+    else
+      this->tail = elem;
+
+    this->num++;
+    return ListIterator<T>(elem);
+  }
+
+  ListIterator<T> erase(ListIterator<T> pos) override
+  {
+    Element<T>* cur = pos.getPtr();
+    if (cur == nullptr)
+      return this->end();
+
+    Element<T>* prev = cur->getPrevious();
+    Element<T>* next = cur->getNext();
+
+    if (prev != nullptr) prev->setNext(next);
+    else                 this->head = next;
+
+    if (next != nullptr) next->setPrevious(prev);
+    else                 this->tail = prev;
+
+    delete cur;
+    this->num--;
+    return ListIterator<T>(next);
+  }
 };
 
 template <class T>
@@ -135,38 +193,20 @@ class Stack : public IteratedLinkedList<T>
 public:
   Stack() : IteratedLinkedList<T>() {}
 
-  Element<T>* push(T value) override
+  ListIterator<T> push(const T& value) override
   {
-    Element<T>* elem = new Element<T>(value, nullptr, this->tail);
-
-    if (this->tail != nullptr)
-      this->tail->setNext(elem);
-    else
-      this->head = elem;
-
-    this->tail = elem;
-    this->num++;
-    return elem;
+    return this->insert(this->end(), value);
   }
 
   T pop() override
   {
-    if (this->tail == nullptr)
-      return T();
-
-    T value = this->tail->getValue();
-    Element<T>* prev = this->tail->getPrevious();
-    delete this->tail;
-
-    this->tail = prev;
-
-    if (prev != nullptr)
-      prev->setNext(nullptr);
-    else
-      this->head = nullptr;
-
-    this->num--;
-    return value;
+      if (this->begin() == this->end())
+          return T();
+          
+      ListIterator<T> it = this->rbegin();
+      T value = (*it).getValue();
+      this->erase(it);
+      return value;
   }
 };
 
@@ -182,48 +222,52 @@ public:
   ListIterator<T> rend()   { return Stack<T>::rend(); }
   int Number() const       { return Stack<T>::Number(); }
 
-  T pop() { return Stack<T>::pop(); }
-
-  Element<T>* push(T value) override
+  ListIterator<T> push(const T& value) override
   {
-    Element<T>* elem = new Element<T>(value, nullptr, nullptr);
-
-    if (this->head == nullptr)
-    {
-      this->head = elem;
-      this->tail = elem;
-      this->num++;
-      return elem;
-    }
-
     ListIterator<T> it = this->begin();
     while (it != this->end() && (*it).getValue() < value)
       ++it;
 
-    if (it == this->end())
+    return this->insert(it, value);
+  }
+
+  T pop() override { return Stack<T>::pop(); }
+
+  T pop_front()
+  {
+    if (this->begin() == this->end())
+      return T();
+
+    ListIterator<T> it = this->begin();
+    T value = (*it).getValue();
+    this->erase(it);
+
+    return value;
+  }
+
+  T pop_back()
+  {
+    if (this->begin() == this->end())
+      return T();
+
+    ListIterator<T> it = this->rbegin();
+    T value = (*it).getValue();
+    this->erase(it);
+    
+    return value;
+  }
+
+  bool pop(const T& value)
+  {
+    for (ListIterator<T> it = this->begin(); it != this->end(); ++it)
     {
-      elem->setPrevious(this->tail);
-      this->tail->setNext(elem);
-      this->tail = elem;
+      if ((*it).getValue() == value)
+      {
+        this->erase(it);
+        return true;
+      }
     }
-    else
-    {
-      Element<T>& cur  = *it;
-      Element<T>* prev = cur.getPrevious();
-
-      elem->setNext(&cur);
-      elem->setPrevious(prev);
-
-      if (prev != nullptr)
-        prev->setNext(elem);
-      else
-        this->head = elem;
-
-      cur.setPrevious(elem);
-    }
-
-    this->num++;
-    return elem;
+    return false;
   }
 };
 
@@ -303,7 +347,7 @@ int main()
   cout << " pop \n";
   while (cameras.Number() > 0)
   {
-    cout << cameras.pop() << "\n";
+    cout << cameras.pop_back() << "\n";
   }
 
   return 0;

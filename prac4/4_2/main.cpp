@@ -1,8 +1,10 @@
 #include <iostream>
+#include <string>
 #include <vector>
 #include <cstdlib>
 
 using std::cout;
+using std::string;
 using std::vector;
 
 template <class K, class V>
@@ -11,16 +13,15 @@ class Node
 public:
   K key;
   V data;
-
   int priority;
 
   Node* left;
   Node* right;
   Node* parent;
 
-  int size;
-  V sum;
-  bool rev;
+  int subtreeSize; 
+  V subtreeSum; 
+  bool rev;        
 
   Node(K k = K(), V d = V(), int p = 0)
   {
@@ -32,9 +33,48 @@ public:
     right = nullptr;
     parent = nullptr;
 
-    size = 1;
-    sum = d;
+    subtreeSize = 1;
+    subtreeSum = d;
     rev = false;
+  }
+};
+
+template <class K, class V>
+class TreapIterator
+{
+private:
+  Node<K, V>* current;
+
+public:
+  TreapIterator(Node<K, V>* n = nullptr) : current(n) {}
+
+  V& operator*()           { return current->data; }
+  Node<K, V>* operator->() { return current; }
+
+  bool operator==(const TreapIterator& other) const { return current == other.current; }
+  bool operator!=(const TreapIterator& other) const { return current != other.current; }
+
+  TreapIterator& operator++()
+  {
+    if (current == nullptr) return *this;
+
+    if (current->right != nullptr)
+    {
+      current = current->right;
+      while (current->left != nullptr)
+        current = current->left;
+    }
+    else
+    {
+      Node<K, V>* p = current->parent;
+      while (p != nullptr && current == p->right)
+      {
+        current = p;
+        p = p->parent;
+      }
+      current = p;
+    }
+    return *this;
   }
 };
 
@@ -49,7 +89,7 @@ protected:
     if (n) n->parent = p;
   }
 
-  Node<K, V>* merge(Node<K, V>* L, Node<K, V>* R)
+  virtual Node<K, V>* merge(Node<K, V>* L, Node<K, V>* R)
   {
     if (L == nullptr) return R;
     if (R == nullptr) return L;
@@ -70,7 +110,7 @@ protected:
     }
   }
 
-  void split(Node<K, V>* n, K key, Node<K, V>*& L, Node<K, V>*& R)
+  virtual void split(Node<K, V>* n, K key, Node<K, V>*& L, Node<K, V>*& R)
   {
     if (n == nullptr)
     {
@@ -118,7 +158,7 @@ protected:
   }
 
 public:
-  Treap() { root = nullptr; }
+  Treap()          { root = nullptr; }
   virtual ~Treap() { destroy(root); }
 
   Node<K, V>* getRoot() { return root; }
@@ -166,28 +206,21 @@ public:
     Node<K, V>* n = root;
     while (n != nullptr)
     {
-      if (key < n->key) 
-        n = n->left;
-
-      else if (key > n->key) 
-        n = n->right;
-
-      else 
-        return n;
+      if (key < n->key)       n = n->left;
+      else if (key > n->key)  n = n->right;
+      else                    return n;
     }
     return nullptr;
   }
 
-  Node<K, V>* Min() { return minNode(root); }
-  Node<K, V>* Max() { return maxNode(root); }
-
-  Node<K, V>* Min(Node<K, V>* sub) { return minNode(sub); }
-  Node<K, V>* Max(Node<K, V>* sub) { return maxNode(sub); }
+  Node<K, V>* Min()                 { return minNode(root); }
+  Node<K, V>* Max()                 { return maxNode(root); }
+  Node<K, V>* Min(Node<K, V>* sub)  { return minNode(sub); }
+  Node<K, V>* Max(Node<K, V>* sub)  { return maxNode(sub); }
 
   Node<K, V>* successor(Node<K, V>* n)
   {
     if (n == nullptr) return nullptr;
-
     if (n->right != nullptr) return minNode(n->right);
 
     Node<K, V>* p = n->parent;
@@ -198,6 +231,9 @@ public:
     }
     return p;
   }
+
+  TreapIterator<K, V> begin() { return TreapIterator<K, V>(Min()); }
+  TreapIterator<K, V> end()   { return TreapIterator<K, V>(nullptr); }
 
   void InOrder(Node<K, V>* n, void (*f)(Node<K, V>*))
   {
@@ -212,15 +248,15 @@ template <class T>
 class ImplicitTreap : protected Treap<int, T>
 {
 protected:
-  int sz(Node<int, T>* n) { return n ? n->size : 0; }
-  T sm(Node<int, T>* n) { return n ? n->sum : T(); }
+  int size(Node<int, T>* n)  { return n ? n->subtreeSize : 0; }
+
+  T   sum (Node<int, T>* n)  { return n ? n->subtreeSum  : T(); }
 
   void update(Node<int, T>* n)
   {
     if (!n) return;
-
-    n->size = 1 + sz(n->left) + sz(n->right);
-    n->sum = n->data + sm(n->left) + sm(n->right);
+    n->subtreeSize = 1 + size(n->left) + size(n->right);
+    n->subtreeSum  = n->data + sum(n->left) + sum(n->right);
   }
 
   void push(Node<int, T>* n)
@@ -228,17 +264,17 @@ protected:
     if (n && n->rev)
     {
       Node<int, T>* t = n->left;
-      n->left = n->right;
+      n->left  = n->right;
       n->right = t;
 
-      if (n->left) n->left->rev = !n->left->rev;
+      if (n->left)  n->left->rev  = !n->left->rev;
       if (n->right) n->right->rev = !n->right->rev;
 
       n->rev = false;
     }
   }
 
-  Node<int, T>* merge(Node<int, T>* L, Node<int, T>* R)
+  Node<int, T>* merge(Node<int, T>* L, Node<int, T>* R) override
   {
     push(L);
     push(R);
@@ -260,7 +296,7 @@ protected:
     }
   }
 
-  void split(Node<int, T>* n, int k, Node<int, T>*& L, Node<int, T>*& R)
+  void split(Node<int, T>* n, int k, Node<int, T>*& L, Node<int, T>*& R) override
   {
     push(n);
 
@@ -271,7 +307,7 @@ protected:
       return;
     }
 
-    int ls = sz(n->left);
+    int ls = size(n->left);
 
     if (ls >= k)
     {
@@ -324,7 +360,7 @@ public:
 
   bool RemoveAt(int pos)
   {
-    if (pos < 0 || pos >= sz(this->root)) return false;
+    if (pos < 0 || pos >= size(this->root)) return false;
 
     Node<int, T>* L = nullptr;
     Node<int, T>* M = nullptr;
@@ -347,7 +383,7 @@ public:
     split(this->root, l, L, M);
     split(M, r - l + 1, M, R);
 
-    T result = sm(M);
+    T result = sum(M);
 
     this->root = merge(merge(L, M), R);
     return result;
@@ -373,45 +409,42 @@ public:
     cout << "\n";
   }
 
-  int Size() { return sz(this->root); }
+  int Size() { return size(this->root); }
 };
 
 int main()
 {
   srand(42);
-
   ImplicitTreap<double> tree;
 
   vector<double> arr = {1.5, 2.5, 3.5, 4.5, 5.5, 6.5, 7.5};
   tree.Build(arr);
 
-  cout << "\n";
+  cout << "Initial array:\n";
   tree.Print();
 
-  cout << "\n\n";
-  cout << tree.QuerySum(0, 6) << "\n";
+  cout << "\nSum of all elements: " << tree.QuerySum(0, 6) << "\n";
+  cout << "Sum of [2..4]:       " << tree.QuerySum(2, 4) << "\n";
 
-  cout << "\n";
-  cout << tree.QuerySum(2, 4) << "\n";
-
-  cout << "\n\n";
+  cout << "\nInsertAt(3, 99.9):\n";
   tree.InsertAt(3, 99.9);
   tree.Print();
 
-  cout << "\n\n";
+  cout << "\nRemoveAt(3):\n";
   tree.RemoveAt(3);
   tree.Print();
 
-  cout << "\n\n";
+  cout << "\nReverse(1, 5):\n";
   tree.Reverse(1, 5);
   tree.Print();
 
-  cout << "\n\n";
-  cout << tree.QuerySum(1, 5) << "\n";
+  cout << "\nSum of [1..5] after reverse: " << tree.QuerySum(1, 5) << "\n";
 
-  cout << "\n\n";
+  cout << "\nReverse(1, 5) back:\n";
   tree.Reverse(1, 5);
   tree.Print();
+
+  cout << "\nSize: " << tree.Size() << "\n";
 
   return 0;
 }

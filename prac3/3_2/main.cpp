@@ -37,6 +37,17 @@ struct Camera
     return other < *this;
   }
 
+  bool operator==(const Camera& other) const
+  {
+    return producer == other.producer
+        && model == other.model
+        && type == other.type
+        && memory_card == other.memory_card
+        && megapixels == other.megapixels
+        && sensor_size == other.sensor_size
+        && weight == other.weight
+        && price == other.price;
+  }
 };
 
 

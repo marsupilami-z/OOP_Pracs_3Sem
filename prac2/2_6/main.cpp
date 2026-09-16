@@ -36,6 +36,18 @@ struct Camera
   {
     return other < *this;
   }
+
+  bool operator==(const Camera& other) const
+  {
+    return producer == other.producer
+        && model == other.model
+        && type == other.type
+        && memory_card == other.memory_card
+        && megapixels == other.megapixels
+        && sensor_size == other.sensor_size
+        && weight == other.weight
+        && price == other.price;
+  }
 };
 
 std::ostream& operator<<(std::ostream& os, const Camera& c)
@@ -215,10 +227,13 @@ int main()
   heap.push(Camera("Panasonic","Lumix G9",  "Mirrorless", 17.3, 20, 658, "SD",        1300));
   heap.push(Camera("Sony",     "A7 III",    "Mirrorless", 35.6, 24, 650, "SD",        1500));
 
+  heap.Straight(print);
+
   while (heap.getCount() > 0)
   {
     cout << heap.ExtractMax() << "\n";
   }
+
 
   return 0;
 }

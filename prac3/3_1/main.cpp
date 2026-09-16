@@ -48,13 +48,10 @@ std::ostream& operator<<(std::ostream& os, const Camera& c)
   return os;
 }
 
-void print_queue(priority_queue<Camera>& q)
+template <class Q>
+void print_queue(Q q) // делаем копию чтобы не опустошать очередь
 {
-  while (!q.empty())
-  {
-    cout << q.top() << "\n";
-    q.pop();
-  }
+  while (!q.empty()) { cout << q.top() << "\n"; q.pop(); }
 }
 
 int main()

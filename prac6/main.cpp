@@ -8,6 +8,7 @@ using std::queue;
 using std::min;
 
 const int N = 9;
+const int INF = 9999;
 
 vector<vector<int>> mat = {
   { 0, 7, 6, 4, 7, 0, 9, 2, 7 },
@@ -21,8 +22,15 @@ vector<vector<int>> mat = {
   { 7, 6, 0, 1, 5, 3, 1, 3, 0 }
 };
 
-vector<int> path;
-vector<int> used(N, 0);
+vector<vector<int>> bip = {
+  {0,0,0,0,0,0,1},
+  {0,0,0,0,1,0,0},
+  {0,0,0,0,0,0,1},
+  {0,0,0,1,0,0,0},
+  {0,0,0,0,0,0,1},
+  {0,0,0,1,0,0,0},
+  {0,0,0,0,0,0,1}
+};
 
 bool bfs(vector<vector<int>>& rcap, vector<int>& parent, int s, int t)
 {
@@ -63,7 +71,7 @@ int findFlow(int s, int t)
 
   while (bfs(rcap, parent, s, t))
   {
-    int pathFlow = 9999;
+    int pathFlow = INF;
 
     for (int v = t; v != s; v = parent[v])
       pathFlow = min(pathFlow, rcap[parent[v]][v]);
@@ -78,7 +86,6 @@ int findFlow(int s, int t)
     for (int i = (int)route.size() - 1; i >= 0; i--)
     {
       cout << route[i];
-
       if (i > 0) cout << " -> ";
     }
 
@@ -97,24 +104,49 @@ int findFlow(int s, int t)
   return maxFlow;
 }
 
-bool hamilton(int u)
+bool tryKuhn(int u,
+             vector<vector<int>>& g,
+             vector<int>& matchR,
+             vector<int>& used,
+             int timer,
+             int nRight)
 {
-  path.push_back(u);
-  used[u] = 1;
+  if (used[u] == timer) return false;
+  used[u] = timer;
 
-  if ((int)path.size() == N) return true;
-
-  for (int v = 0; v < N; v++)
+  for (int v = 0; v < nRight; v++)
   {
-    if (mat[u][v] > 0 && used[v] == 0)
+    if (g[u][v] == 0) continue;
+
+    if (matchR[v] == -1 ||
+        tryKuhn(matchR[v], g, matchR, used, timer, nRight))
     {
-      if (hamilton(v)) return true;
+      matchR[v] = u;
+      return true;
     }
   }
-
-  path.pop_back();
-  used[u] = 0;
   return false;
+}
+
+int maxMatchingBipartite(vector<vector<int>>& g,
+                         int nLeft,
+                         int nRight,
+                         vector<int>& matchR)
+{
+  matchR.assign(nRight, -1);
+
+  vector<int> used(nLeft, 0);
+  int timer = 0;
+  int result = 0;
+
+  for (int u = 0; u < nLeft; u++)
+  {
+    timer++;
+    if (tryKuhn(u, g, matchR, used, timer, nRight))
+      result++;
+  }
+
+  return result;
 }
 
 void coloring()
@@ -148,30 +180,68 @@ void coloring()
   cout << "Colors used: " << maxColor + 1 << "\n";
 }
 
-int main()
+vector<int> path;
+vector<int> used(N, 0);
+
+bool hamilton(int u)
 {
-  cout << "\n";
-  int total = findFlow(0, 8);
-  cout << "Total flow = " << total << "\n";
+  path.push_back(u);
+  used[u] = 1;
 
-  cout << "\n\n";
-  if (hamilton(0))
+  if ((int)path.size() == N)
   {
-    for (int i = 0; i < (int)path.size(); i++)
-    {
-      cout << path[i];
-
-      if (i < (int)path.size() - 1) cout << " -> ";
-    }
-    cout << "\n";
+    if (mat[u][0] > 0)
+      return true;
   }
   else
   {
-    cout << "No Hamiltonian path\n";
+    for (int v = 0; v < N; v++)
+    {
+      if (mat[u][v] > 0 && used[v] == 0)
+      {
+        if (hamilton(v)) return true;
+      }
+    }
   }
 
-  cout << "\n\n";
+  path.pop_back();
+  used[u] = 0;
+  return false;
+}
+
+int main()
+{
+  cout << "Max flow 0 -> 8\n";
+  int total = findFlow(0, 8);
+  cout << "Total flow = " << total << "\n\n";
+
+  cout << "Maximum matching (variant 28)\n";
+  vector<int> matchR;
+  int mmSize = maxMatchingBipartite(bip, 7, 7, matchR);
+
+  cout << "Matching size = " << mmSize << "\n";
+  for (int v = 0; v < 7; v++)
+  {
+    if (matchR[v] != -1)
+      cout << "  " << matchR[v] + 1 << " - " << v + 1 << "\n";
+  }
+  cout << "\n";
+
+  cout << "Greedy coloring\n";
   coloring();
+  cout << "\n";
+
+  cout << "Hamiltonian cycle\n";
+  if (hamilton(0))
+  {
+    for (int i = 0; i < (int)path.size(); i++)
+      cout << path[i] << " -> ";
+    cout << path[0] << "\n";
+  }
+  else
+  {
+    cout << "No Hamiltonian cycle\n";
+  }
 
   return 0;
 }

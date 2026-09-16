@@ -100,7 +100,6 @@ public:
     }
   }
 
-
   ListIterator<T> begin() { return ListIterator<T>(this->head); }
   ListIterator<T> end()   { return ListIterator<T>(nullptr); }
 };
@@ -348,132 +347,46 @@ public:
 };
 
 template <class K, class V>
-class Tree
+class SearchTree
 {
 protected:
   Node<K, V>* root;
 
-  int height(Node<K, V>* n) { return n ? n->getHeight() : 0; }
-
-  void updateHeight(Node<K, V>* n)
-  {
-    if (!n) return;
-
-    int hl = height(n->getLeft());
-    int hr = height(n->getRight());
-
-    n->setHeight(1 + (hl > hr ? hl : hr));
-  }
-
-  int balanceFactor(Node<K, V>* n)
-  {
-    return n ? height(n->getLeft()) - height(n->getRight()) : 0;
-  }
-
-  Node<K, V>* rotateRight(Node<K, V>* y)
-  {
-    Node<K, V>* x = y->getLeft();
-    Node<K, V>* T2 = x->getRight();
-
-    x->setRight(y);
-    y->setLeft(T2);
-
-    if (T2) T2->setParent(y);
-
-    x->setParent(y->getParent());
-    y->setParent(x);
-
-    updateHeight(y);
-    updateHeight(x);
-    return x;
-  }
-
-  Node<K, V>* rotateLeft(Node<K, V>* x)
-  {
-    Node<K, V>* y = x->getRight();
-    Node<K, V>* T2 = y->getLeft();
-
-    y->setLeft(x);
-    x->setRight(T2);
-
-    if (T2) T2->setParent(x);
-
-    y->setParent(x->getParent());
-    x->setParent(y);
-
-    updateHeight(x);
-    updateHeight(y);
-    return y;
-  }
-
-  Node<K, V>* balance(Node<K, V>* n)
-  {
-    if (!n) return nullptr;
-
-    updateHeight(n);
-
-    int bf = balanceFactor(n);
-
-    if (bf > 1 && balanceFactor(n->getLeft()) >= 0) return rotateRight(n);
-
-    if (bf > 1 && balanceFactor(n->getLeft()) < 0)
-    {
-      n->setLeft(rotateLeft(n->getLeft()));
-      return rotateRight(n);
-    }
-
-    if (bf < -1 && balanceFactor(n->getRight()) <= 0) return rotateLeft(n);
-
-    if (bf < -1 && balanceFactor(n->getRight()) > 0)
-    {
-      n->setRight(rotateRight(n->getRight()));
-      return rotateLeft(n);
-    }
-
-    return n;
-  }
-
 public:
-  Node<K, V>* getRoot() { return root; }
+  SearchTree() { root = nullptr; }
 
-  Tree() { root = nullptr; }
+  virtual ~SearchTree() { destroy(root); }
 
-  virtual Node<K, V>* Add_R(Node<K, V>* N) { return Add_R(N, root); }
+  virtual Node<K, V>* getRoot() { return root; }
 
   virtual Node<K, V>* Add_R(Node<K, V>* N, Node<K, V>* Current)
   {
-    if (N == nullptr) return nullptr;
+    if (N == nullptr) return Current;
+    if (Current == nullptr) return N;
 
-    if (root == nullptr)
+    if (N->getKey() < Current->getKey())
     {
-      root = N;
-      return N;
+      Current->setLeft(Add_R(N, Current->getLeft()));
+      if (Current->getLeft()) Current->getLeft()->setParent(Current);
     }
-
-    if (Current->getKey() > N->getKey())
+    else if (N->getKey() > Current->getKey())
     {
-      if (Current->getLeft() != nullptr)
-        Current->setLeft(Add_R(N, Current->getLeft()));
-      else
-        Current->setLeft(N);
-
-      Current->getLeft()->setParent(Current);
-    }
-    else if (Current->getKey() < N->getKey())
-    {
-      if (Current->getRight() != nullptr)
-        Current->setRight(Add_R(N, Current->getRight()));
-      else
-        Current->setRight(N);
-
-      Current->getRight()->setParent(Current);
+      Current->setRight(Add_R(N, Current->getRight()));
+      if (Current->getRight()) Current->getRight()->setParent(Current);
     }
     else
     {
       return Current;
     }
 
-    return balance(Current);
+    return Current;
+  }
+
+  virtual Node<K, V>* Add_R(Node<K, V>* N)
+  {
+    root = Add_R(N, root);
+    if (root) root->setParent(nullptr);
+    return root;
   }
 
   virtual void Add(K key, V data)
@@ -482,8 +395,16 @@ public:
 
     Node<K, V>* N = new Node<K, V>(key, data);
     root = Add_R(N, root);
-
     if (root) root->setParent(nullptr);
+  }
+
+  virtual Node<K, V>* Find(K key, Node<K, V>* Current)
+  {
+    if (Current == nullptr) return nullptr;
+    if (Current->getKey() == key) return Current;
+    if (Current->getKey() > key)  return Find(key, Current->getLeft());
+
+    return Find(key, Current->getRight());
   }
 
   virtual Node<K, V>* Min(Node<K, V>* Current = nullptr)
@@ -508,15 +429,6 @@ public:
     return Current;
   }
 
-  virtual Node<K, V>* Find(K key, Node<K, V>* Current)
-  {
-    if (Current == nullptr) return nullptr;
-    if (Current->getKey() == key) return Current;
-    if (Current->getKey() > key) return Find(key, Current->getLeft());
-
-    return Find(key, Current->getRight());
-  }
-
   TreeIterator<K, V> begin()  { return TreeIterator<K, V>(Min()); }
   TreeIterator<K, V> end()    { return TreeIterator<K, V>(nullptr); }
   TreeIterator<K, V> rbegin() { return TreeIterator<K, V>(Max()); }
@@ -528,44 +440,136 @@ public:
 
     destroy(n->getLeft());
     destroy(n->getRight());
-
     delete n;
   }
-
-  ~Tree() { destroy(root); }
 };
 
 template <class K, class V>
-class MultiTree : public Tree<K, V>
+class AVLTree : public SearchTree<K, V>
+{
+protected:
+  int height(Node<K, V>* n) { return n ? n->getHeight() : 0; }
+
+  void updateHeight(Node<K, V>* n)
+  {
+    if (!n) return;
+    int hl = height(n->getLeft());
+    int hr = height(n->getRight());
+    n->setHeight(1 + (hl > hr ? hl : hr));
+  }
+
+  int balanceFactor(Node<K, V>* n)
+  {
+    return n ? height(n->getLeft()) - height(n->getRight()) : 0;
+  }
+
+  Node<K, V>* rotateRight(Node<K, V>* y)
+  {
+    Node<K, V>* x  = y->getLeft();
+    Node<K, V>* T2 = x->getRight();
+
+    x->setRight(y);
+    y->setLeft(T2);
+
+    if (T2) T2->setParent(y);
+    x->setParent(y->getParent());
+    y->setParent(x);
+
+    updateHeight(y);
+    updateHeight(x);
+    return x;
+  }
+
+  Node<K, V>* rotateLeft(Node<K, V>* x)
+  {
+    Node<K, V>* y  = x->getRight();
+    Node<K, V>* T2 = y->getLeft();
+
+    y->setLeft(x);
+    x->setRight(T2);
+
+    if (T2) T2->setParent(x);
+    y->setParent(x->getParent());
+    x->setParent(y);
+
+    updateHeight(x);
+    updateHeight(y);
+    return y;
+  }
+
+  Node<K, V>* balance(Node<K, V>* n)
+  {
+    if (!n) return nullptr;
+    updateHeight(n);
+
+    int bf = balanceFactor(n);
+
+    if (bf > 1 && balanceFactor(n->getLeft()) >= 0)
+      return rotateRight(n);
+
+    if (bf > 1 && balanceFactor(n->getLeft()) < 0)
+    {
+      n->setLeft(rotateLeft(n->getLeft()));
+      return rotateRight(n);
+    }
+
+    if (bf < -1 && balanceFactor(n->getRight()) <= 0)
+      return rotateLeft(n);
+
+    if (bf < -1 && balanceFactor(n->getRight()) > 0)
+    {
+      n->setRight(rotateRight(n->getRight()));
+      return rotateLeft(n);
+    }
+
+    return n;
+  }
+
+public:
+  AVLTree() : SearchTree<K, V>() {}
+
+  Node<K, V>* Add_R(Node<K, V>* N, Node<K, V>* Current) override
+  {
+    if (N == nullptr) return Current;
+    if (Current == nullptr) return N;
+
+    if (N->getKey() < Current->getKey())
+    {
+      Current->setLeft(Add_R(N, Current->getLeft()));
+      if (Current->getLeft()) Current->getLeft()->setParent(Current);
+    }
+    else if (N->getKey() > Current->getKey())
+    {
+      Current->setRight(Add_R(N, Current->getRight()));
+      if (Current->getRight()) Current->getRight()->setParent(Current);
+    }
+    else
+    {
+      return Current;
+    }
+
+    return balance(Current);
+  }
+};
+
+template <class K, class V>
+class MultiTree : public AVLTree<K, V>
 {
 protected:
   Node<K, V>* Add_Multi(Node<K, V>* N, Node<K, V>* Current)
   {
-    if (N == nullptr) return nullptr;
-
-    if (this->root == nullptr)
-    {
-      this->root = N;
-      return N;
-    }
+    if (N == nullptr) return Current;
+    if (Current == nullptr) return N;
 
     if (N->getKey() < Current->getKey())
     {
-      if (Current->getLeft() != nullptr)
-        Current->setLeft(Add_Multi(N, Current->getLeft()));
-      else
-        Current->setLeft(N);
-
-      Current->getLeft()->setParent(Current);
+      Current->setLeft(Add_Multi(N, Current->getLeft()));
+      if (Current->getLeft()) Current->getLeft()->setParent(Current);
     }
     else
     {
-      if (Current->getRight() != nullptr)
-        Current->setRight(Add_Multi(N, Current->getRight()));
-      else
-        Current->setRight(N);
-
-      Current->getRight()->setParent(Current);
+      Current->setRight(Add_Multi(N, Current->getRight()));
+      if (Current->getRight()) Current->getRight()->setParent(Current);
     }
 
     return this->balance(Current);
@@ -584,18 +588,19 @@ protected:
   }
 
 public:
-  MultiTree() : Tree<K, V>() {}
+  MultiTree() : AVLTree<K, V>() {}
 
   Node<K, V>* Add_R(Node<K, V>* N) override
   {
-    return Add_Multi(N, this->root);
+    this->root = Add_Multi(N, this->root);
+    if (this->root) this->root->setParent(nullptr);
+    return this->root;
   }
 
   void Add(K key, V data) override
   {
     Node<K, V>* N = new Node<K, V>(key, data);
     this->root = Add_Multi(N, this->root);
-
     if (this->root) this->root->setParent(nullptr);
   }
 
@@ -603,7 +608,6 @@ public:
   {
     SortedStack<V> result;
     collect(this->root, key, result);
-
     return result;
   }
 };
@@ -646,7 +650,7 @@ int main()
   SortedStack<Camera> canon = tree["Canon EOS R5"];
   print_stack(canon);
 
-  cout << "NonExistent \n";
+  cout << "NonExistent\n";
   SortedStack<Camera> none = tree["Some Unknown Camera"];
   cout << "  count: " << none.Number() << "\n";
 

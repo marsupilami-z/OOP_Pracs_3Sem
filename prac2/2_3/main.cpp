@@ -53,7 +53,7 @@ std::ostream& operator<<(std::ostream& os, const Camera& c)
 }
 
 template <class Q>
-void print_queue(Q& q)
+void print_queue(Q q)
 {
   while (!q.empty())
   {

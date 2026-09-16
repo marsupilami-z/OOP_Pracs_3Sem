@@ -30,6 +30,45 @@ public:
 };
 
 template <class K, class V>
+class TreapIterator
+{
+private:
+  Node<K, V>* current;
+
+public:
+  TreapIterator(Node<K, V>* n = nullptr) : current(n) {}
+
+  V& operator*() { return current->data; }
+  Node<K, V>* operator->() { return current; }
+
+  bool operator==(const TreapIterator& other) const { return current == other.current; }
+  bool operator!=(const TreapIterator& other) const { return current != other.current; }
+
+  TreapIterator& operator++()
+  {
+    if (current == nullptr) return *this;
+
+    if (current->right != nullptr)
+    {
+      current = current->right;
+      while (current->left != nullptr)
+        current = current->left;
+    }
+    else
+    {
+      Node<K, V>* p = current->parent;
+      while (p != nullptr && current == p->right)
+      {
+        current = p;
+        p = p->parent;
+      }
+      current = p;
+    }
+    return *this;
+  }
+};
+
+template <class K, class V>
 class Treap
 {
 protected:
@@ -52,7 +91,8 @@ protected:
       setParent(L, nullptr);
       return L;
     }
-    else{
+    else
+    {
       R->left = merge(L, R->left);
       setParent(R->left, R);
       setParent(R, nullptr);
@@ -102,7 +142,7 @@ protected:
   void destroy(Node<K, V>* n)
   {
     if (!n) return;
-    
+
     destroy(n->left);
     destroy(n->right);
     delete n;
@@ -192,6 +232,9 @@ public:
     return p;
   }
 
+  TreapIterator<K, V> begin() { return TreapIterator<K, V>(Min()); }
+  TreapIterator<K, V> end()   { return TreapIterator<K, V>(nullptr); }
+
   void InOrder(Node<K, V>* n, void (*f)(Node<K, V>*))
   {
     if (n == nullptr) return;
@@ -211,40 +254,50 @@ int main()
 {
   Treap<int, string> t;
 
-  t.insert(50, "fifty",  10);
-  t.insert(30, "thirty", 20);
-  t.insert(70, "seventy",5);
-  t.insert(20, "twenty", 25);
-  t.insert(40, "forty",  15);
-  t.insert(60, "sixty",  12);
-  t.insert(80, "eighty", 3);
+  t.insert(50, "fifty",   10);
+  t.insert(30, "thirty",  20);
+  t.insert(70, "seventy",  5);
+  t.insert(20, "twenty",  25);
+  t.insert(40, "forty",   15);
+  t.insert(60, "sixty",   12);
+  t.insert(80, "eighty",   3);
 
-  cout << "\n";
+  cout << "InOrder (via function):\n";
   t.InOrder(t.getRoot(), print);
 
-  cout << "\n\n";
+  cout << "\nInOrder (via iterator):\n";
+  for (TreapIterator<int, string> it = t.begin(); it != t.end(); ++it)
+    cout << "Key: " << it->key
+         << ", value: " << *it
+         << ", priority: " << it->priority << "\n";
+
+  cout << "\n";
   Node<int, string>* mn = t.Min();
   Node<int, string>* mx = t.Max();
   if (mn) cout << "Min: " << mn->key << "\n";
   if (mx) cout << "Max: " << mx->key << "\n";
 
-  cout << "\n\n";
+  cout << "\n";
   Node<int, string>* n40 = t.find(40);
   Node<int, string>* succ = t.successor(n40);
-  if (succ) cout << "Successor: " << succ->key << "\n";
+  if (succ) cout << "Successor of 40: " << succ->key << "\n";
 
-  cout << "\n\n";
+  cout << "\nSplit at 50:\n";
   Treap<int, string> L, R;
   t.Split(50, L, R);
 
-  cout << "L:\n";
-  L.InOrder(L.getRoot(), print);
-  cout << "R:\n";
-  R.InOrder(R.getRoot(), print);
+  cout << "L (min -> split):\n";
+  for (TreapIterator<int, string> it = L.begin(); it != L.end(); ++it)
+    cout << "Key: " << it->key << ", value: " << *it << "\n";
 
-  cout << "\n\n";
+  cout << "R (split -> max):\n";
+  for (TreapIterator<int, string> it = R.begin(); it != R.end(); ++it)
+    cout << "Key: " << it->key << ", value: " << *it << "\n";
+
+  cout << "\nL.Merge(R):\n";
   L.Merge(R);
-  L.InOrder(L.getRoot(), print);
+  for (TreapIterator<int, string> it = L.begin(); it != L.end(); ++it)
+    cout << "Key: " << it->key << ", value: " << *it << "\n";
 
   return 0;
 }
