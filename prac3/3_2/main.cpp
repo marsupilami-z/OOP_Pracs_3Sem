@@ -89,6 +89,7 @@ class Heap
 {
 private:
   Node<T>* arr;
+  
   int len;
   int size;
 
@@ -225,6 +226,24 @@ public:
     return false;
   }
 
+  bool ChangePriority(int index, T newValue)
+  {
+    if (index < 0 || index >= len) return false;
+
+    T oldValue = arr[index].getValue();
+
+    if (oldValue == newValue) return true;
+
+    arr[index].setValue(newValue);
+
+    if (newValue > oldValue)
+      SiftUp(index);
+    else
+      SiftDown(index);
+
+    return true;
+  }
+
   void Straight(void (*f)(Node<T>*))
   {
     for (int i = 0; i < len; i++)
@@ -244,7 +263,7 @@ int main()
   heap.push(Camera("Panasonic","Lumix G9",  "Mirrorless", 17.3, 20, 658, "SD",        1300));
   heap.push(Camera("Sony",     "A7 III",    "Mirrorless", 35.6, 24, 650, "SD",        1500));
 
-  cout << " Max n";
+  cout << "\nMax:\n";
   while (heap.getCount() > 0)
   {
     cout << heap.ExtractMax() << "\n";

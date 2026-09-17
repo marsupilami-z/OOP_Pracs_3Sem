@@ -189,18 +189,13 @@ bool hamilton(int u)
   used[u] = 1;
 
   if ((int)path.size() == N)
+    return true;
+
+  for (int v = 0; v < N; v++)
   {
-    if (mat[u][0] > 0)
-      return true;
-  }
-  else
-  {
-    for (int v = 0; v < N; v++)
+    if (mat[u][v] > 0 && used[v] == 0)
     {
-      if (mat[u][v] > 0 && used[v] == 0)
-      {
-        if (hamilton(v)) return true;
-      }
+      if (hamilton(v)) return true;
     }
   }
 
@@ -231,16 +226,19 @@ int main()
   coloring();
   cout << "\n";
 
-  cout << "Hamiltonian cycle\n";
+  cout << "Hamiltonian path\n";
   if (hamilton(0))
   {
     for (int i = 0; i < (int)path.size(); i++)
-      cout << path[i] << " -> ";
-    cout << path[0] << "\n";
+    {
+      cout << path[i];
+      if (i + 1 < (int)path.size()) cout << " -> ";
+    }
+    cout << "\n";
   }
   else
   {
-    cout << "No Hamiltonian cycle\n";
+    cout << "No Hamiltonian path\n";
   }
 
   return 0;

@@ -257,17 +257,19 @@ public:
     return value;
   }
 
-  bool pop(const T& value)
+  T pop(const T& value)
   {
     for (ListIterator<T> it = this->begin(); it != this->end(); ++it)
     {
       if ((*it).getValue() == value)
       {
+        T result = (*it).getValue();
         this->erase(it);
-        return true;
+        return result;
       }
     }
-    return false;
+
+    throw std::runtime_error("Value not found");
   }
 };
 

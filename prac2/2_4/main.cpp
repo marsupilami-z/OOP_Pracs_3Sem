@@ -49,12 +49,6 @@ public:
 };
 
 template <class K, class V>
-void print(Node<K, V>* N)
-{
-  cout << "Key: " << N->getKey() << ", value: " << N->getData() << "\n";
-}
-
-template <class K, class V>
 class TreeIterator
 {
 private:
@@ -122,12 +116,77 @@ class SearchTree
 protected:
   Node<K, V>* root;
 
-public:
-  SearchTree() { root = nullptr; }
+  Node<K, V>* successorNode(K key)
+  {
+    Node<K, V>* result = nullptr;
+    Node<K, V>* n = root;
 
-  virtual ~SearchTree() { destroy(root); }
+    while (n != nullptr)
+    {
+      if (n->getKey() > key)
+      {
+        result = n;
+        n = n->getLeft();
+      }
+      else
+      {
+        n = n->getRight();
+      }
+    }
+    return result;
+  }
 
-  virtual Node<K, V>* getRoot() { return root; }
+  virtual Node<K, V>* removeNode(Node<K, V>* current, K key)
+  {
+    if (current == nullptr) return nullptr;
+
+    if (key < current->getKey())
+    {
+      current->setLeft(removeNode(current->getLeft(), key));
+
+      if (current->getLeft()) 
+        current->getLeft()->setParent(current);
+    }
+    else if (key > current->getKey())
+    {
+      current->setRight(removeNode(current->getRight(), key));
+
+      if (current->getRight()) 
+        current->getRight()->setParent(current);
+    }
+    else
+    {
+      if (current->getLeft() == nullptr)
+      {
+        Node<K, V>* right = current->getRight();
+        if (right) 
+          right->setParent(current->getParent());
+
+        delete current;
+        return right;
+      }
+      if (current->getRight() == nullptr)
+      {
+        Node<K, V>* left = current->getLeft();
+        if (left) 
+          left->setParent(current->getParent());
+
+        delete current;
+        return left;
+      }
+
+      Node<K, V>* succ = Min(current->getRight());
+
+      current->setKey(succ->getKey());
+      current->setData(succ->getData());
+      current->setRight(removeNode(current->getRight(), succ->getKey()));
+
+      if (current->getRight()) 
+        current->getRight()->setParent(current);
+    }
+
+    return current;
+  }
 
   virtual Node<K, V>* Add_R(Node<K, V>* N, Node<K, V>* Current)
   {
@@ -137,12 +196,16 @@ public:
     if (N->getKey() < Current->getKey())
     {
       Current->setLeft(Add_R(N, Current->getLeft()));
-      if (Current->getLeft()) Current->getLeft()->setParent(Current);
+
+      if (Current->getLeft()) 
+        Current->getLeft()->setParent(Current);
     }
     else if (N->getKey() > Current->getKey())
     {
       Current->setRight(Add_R(N, Current->getRight()));
-      if (Current->getRight()) Current->getRight()->setParent(Current);
+
+      if (Current->getRight()) 
+        Current->getRight()->setParent(Current);
     }
     else
     {
@@ -155,33 +218,16 @@ public:
   virtual Node<K, V>* Add_R(Node<K, V>* N)
   {
     root = Add_R(N, root);
-    if (root) root->setParent(nullptr);
+
+    if (root)
+      root->setParent(nullptr);
+
     return root;
   }
 
-  virtual void Add(K key, V data)
-  {
-    if (Find(key, root) != nullptr)
-      return;
-
-    Node<K, V>* N = new Node<K, V>(key, data);
-    root = Add_R(N, root);         
-    if (root) root->setParent(nullptr);
-  }
-
-  virtual Node<K, V>* Find(K key, Node<K, V>* Current)
+  virtual Node<K, V>* Min(Node<K, V>* Current)
   {
     if (Current == nullptr) return nullptr;
-    if (Current->getKey() == key) return Current;
-    if (Current->getKey() > key)  return Find(key, Current->getLeft());
-
-    return Find(key, Current->getRight());
-  }
-
-  virtual Node<K, V>* Min(Node<K, V>* Current = nullptr)
-  {
-    if (root == nullptr) return nullptr;
-    if (Current == nullptr) Current = root;
 
     while (Current->getLeft() != nullptr)
       Current = Current->getLeft();
@@ -189,48 +235,15 @@ public:
     return Current;
   }
 
-  virtual Node<K, V>* Max(Node<K, V>* Current = nullptr)
+  virtual Node<K, V>* Max(Node<K, V>* Current)
   {
-    if (root == nullptr) return nullptr;
-    if (Current == nullptr) Current = root;
+    if (Current == nullptr) return nullptr;
 
     while (Current->getRight() != nullptr)
       Current = Current->getRight();
 
     return Current;
   }
-
-  virtual void PreOrder(Node<K, V>* N, void (*f)(Node<K, V>*))
-  {
-    if (N == nullptr) return;
-
-    f(N);
-    PreOrder(N->getLeft(), f);
-    PreOrder(N->getRight(), f);
-  }
-
-  virtual void InOrder(Node<K, V>* N, void (*f)(Node<K, V>*))
-  {
-    if (N == nullptr) return;
-
-    InOrder(N->getLeft(), f);
-    f(N);
-    InOrder(N->getRight(), f);
-  }
-
-  virtual void PostOrder(Node<K, V>* N, void (*f)(Node<K, V>*))
-  {
-    if (N == nullptr) return;
-
-    PostOrder(N->getLeft(), f);
-    PostOrder(N->getRight(), f);
-    f(N);
-  }
-
-  TreeIterator<K, V> begin()  { return TreeIterator<K, V>(Min()); }
-  TreeIterator<K, V> end()    { return TreeIterator<K, V>(nullptr); }
-  TreeIterator<K, V> rbegin() { return TreeIterator<K, V>(Max()); }
-  TreeIterator<K, V> rend()   { return TreeIterator<K, V>(nullptr); }
 
   void destroy(Node<K, V>* n)
   {
@@ -240,6 +253,75 @@ public:
     destroy(n->getRight());
     delete n;
   }
+
+public:
+  SearchTree() { root = nullptr; }
+
+  virtual ~SearchTree() { destroy(root); }
+
+  virtual TreeIterator<K, V> Add(K key, V data)
+  {
+    TreeIterator<K, V> existing = Find(key);
+    if (existing != end())
+      return existing;
+
+    Node<K, V>* N = new Node<K, V>(key, data);
+    root = Add_R(N, root);
+
+    if (root) 
+      root->setParent(nullptr);
+
+    return TreeIterator<K, V>(N);
+  }
+
+  virtual TreeIterator<K, V> Find(K key, bool (*eq)(K, K) = nullptr)
+  {
+    Node<K, V>* n = root;
+    while (n != nullptr)
+    {
+      bool equal;
+
+      if (eq != nullptr) 
+        equal = eq(key, n->getKey());
+      else              
+        equal = (key == n->getKey());
+
+      if (equal) 
+        return TreeIterator<K, V>(n);
+
+      if (key < n->getKey()) 
+        n = n->getLeft();
+      else                   
+        n = n->getRight();
+    }
+    return end();
+  }
+
+  virtual TreeIterator<K, V> Min()
+  {
+    return TreeIterator<K, V>(Min(root));
+  }
+
+  virtual TreeIterator<K, V> Max()
+  {
+    return TreeIterator<K, V>(Max(root));
+  }
+
+  virtual TreeIterator<K, V> remove(K key)
+  {
+    if (Find(key) == end()) return end();
+
+    root = removeNode(root, key);
+    if (root) 
+      root->setParent(nullptr);
+
+    return TreeIterator<K, V>(successorNode(key));
+  }
+
+  TreeIterator<K, V> begin()  { return Min(); }
+  TreeIterator<K, V> end()    { return TreeIterator<K, V>(nullptr); }
+  TreeIterator<K, V> rbegin() { return Max(); }
+  TreeIterator<K, V> rend()   { return TreeIterator<K, V>(nullptr); }
 };
 
 template <class K, class V>
@@ -254,8 +336,10 @@ protected:
   void updateHeight(Node<K, V>* n)
   {
     if (!n) return;
+
     int hl = height(n->getLeft());
     int hr = height(n->getRight());
+
     n->setHeight(1 + (hl > hr ? hl : hr));
   }
 
@@ -273,6 +357,7 @@ protected:
     y->setLeft(T2);
 
     if (T2) T2->setParent(y);
+    
     x->setParent(y->getParent());
     y->setParent(x);
 
@@ -290,6 +375,7 @@ protected:
     x->setRight(T2);
 
     if (T2) T2->setParent(x);
+    
     y->setParent(x->getParent());
     x->setParent(y);
 
@@ -326,8 +412,58 @@ protected:
     return n;
   }
 
-public:
-  AVLTree() : SearchTree<K, V>() {}
+  Node<K, V>* removeNode(Node<K, V>* current, K key) override
+  {
+    if (current == nullptr) return nullptr;
+
+    if (key < current->getKey())
+    {
+      current->setLeft(removeNode(current->getLeft(), key));
+
+      if (current->getLeft())
+        current->getLeft()->setParent(current);
+    }
+    else if (key > current->getKey())
+    {
+      current->setRight(removeNode(current->getRight(), key));
+      if (current->getRight())
+        current->getRight()->setParent(current);
+    }
+    else
+    {
+      if (current->getLeft() == nullptr)
+      {
+        Node<K, V>* right = current->getRight();
+
+        if (right)
+          right->setParent(current->getParent());
+
+        delete current;
+        return right;
+      }
+      if (current->getRight() == nullptr)
+      {
+        Node<K, V>* left = current->getLeft();
+
+        if (left)
+          left->setParent(current->getParent());
+
+        delete current;
+        return left;
+      }
+
+      Node<K, V>* succ = this->Min(current->getRight());
+
+      current->setKey(succ->getKey());
+      current->setData(succ->getData());
+      current->setRight(removeNode(current->getRight(), succ->getKey()));
+
+      if (current->getRight())
+        current->getRight()->setParent(current);
+    }
+
+    return balance(current);
+  }
 
   Node<K, V>* Add_R(Node<K, V>* N, Node<K, V>* Current) override
   {
@@ -349,8 +485,11 @@ public:
       return Current;
     }
 
-    return balance(Current);  
+    return balance(Current);
   }
+
+public:
+  AVLTree() : SearchTree<K, V>() {}
 };
 
 struct Camera
@@ -390,22 +529,24 @@ string make_key(const Camera& c)
   return c.producer + " " + c.model;
 }
 
-template <class K, class V, class P>
-Node<K, V>* findInOrder(Node<K, V>* n, P pred)
+bool eq_keys(string a, string b)
 {
-  if (!n) return nullptr;
+  return a == b;
+}
 
-  Node<K, V>* left = findInOrder(n->getLeft(), pred);
-  if (left) return left;
+template <class K, class V, class P>
+TreeIterator<K, V> findInOrder(SearchTree<K, V>& tree, P pred)
+{
+  for (TreeIterator<K, V> it = tree.begin(); it != tree.end(); ++it)
+    if (pred(it->getData()))
+      return it;
 
-  if (pred(n->getData())) return n;
-
-  return findInOrder(n->getRight(), pred);
+  return tree.end();
 }
 
 int main()
 {
-  AVLTree<string, Camera> tree; 
+  AVLTree<string, Camera> tree;
 
   Camera c1("Canon",    "EOS R5",    "Mirrorless", 35.9, 45, 738, "CFexpress", 3900);
   Camera c2("Nikon",    "Z6",        "Mirrorless", 35.9, 24, 675, "XQD",       2000);
@@ -421,7 +562,7 @@ int main()
   tree.Add(make_key(c5), c5);
   tree.Add(make_key(c6), c6);
 
-  cout << "begin/end \n";
+  cout << "begin/end\n";
   for (TreeIterator<string, Camera> it = tree.begin(); it != tree.end(); ++it)
     cout << "Key: " << it->getKey() << ", value: " << it->getData() << "\n";
   cout << "\n";
@@ -431,16 +572,30 @@ int main()
     cout << "Key: " << it->getKey() << ", value: " << it->getData() << "\n";
   cout << "\n";
 
-  cout << "Find \n";
-  Node<string, Camera>* found = tree.Find("Nikon Z6", tree.getRoot());
-  if (found)
+  cout << "Find\n";
+  TreeIterator<string, Camera> found = tree.Find("Nikon Z6");
+  if (found != tree.end())
     cout << "Key: " << found->getKey() << ", value: " << found->getData() << "\n\n";
+
+  cout << "Find with eq\n";
+  TreeIterator<string, Camera> found2 = tree.Find("Nikon Z6", eq_keys);
+  if (found2 != tree.end())
+    cout << "Key: " << found2->getKey() << ", value: " << found2->getData() << "\n\n";
 
   cout << "find_by_value\n";
   auto pred = [](const Camera& c) { return c.model == "A7 III"; };
-  Node<string, Camera>* fv = findInOrder(tree.getRoot(), pred);
-  if (fv)
-    cout << "Key: " << fv->getKey() << ", value: " << fv->getData() << "\n";
+  TreeIterator<string, Camera> fv = findInOrder(tree, pred);
+  if (fv != tree.end())
+    cout << "Key: " << fv->getKey() << ", value: " << fv->getData() << "\n\n";
+
+  cout << "remove(\"Nikon Z6\")\n";
+  TreeIterator<string, Camera> next = tree.remove("Nikon Z6");
+  if (next != tree.end())
+    cout << "Next after removed: " << next->getKey() << "\n\n";
+
+  cout << "After removal:\n";
+  for (TreeIterator<string, Camera> it = tree.begin(); it != tree.end(); ++it)
+    cout << "Key: " << it->getKey() << ", value: " << it->getData() << "\n";
 
   return 0;
 }

@@ -352,6 +352,76 @@ class SearchTree
 protected:
   Node<K, V>* root;
 
+  Node<K, V>* successorNode(K key)
+  {
+    Node<K, V>* result = nullptr;
+    Node<K, V>* n = root;
+
+    while (n != nullptr)
+    {
+      if (n->getKey() > key)
+      {
+        result = n;
+        n = n->getLeft();
+      }
+      else
+      {
+        n = n->getRight();
+      }
+    }
+    return result;
+  }
+
+  virtual Node<K, V>* removeNode(Node<K, V>* current, K key)
+  {
+    if (current == nullptr) return nullptr;
+
+    if (key < current->getKey())
+    {
+      current->setLeft(removeNode(current->getLeft(), key));
+      if (current->getLeft()) current->getLeft()->setParent(current);
+    }
+    else if (key > current->getKey())
+    {
+      current->setRight(removeNode(current->getRight(), key));
+      if (current->getRight()) current->getRight()->setParent(current);
+    }
+    else
+    {
+      if (current->getLeft() == nullptr)
+      {
+        Node<K, V>* right = current->getRight();
+
+        if (right) 
+          right->setParent(current->getParent());
+
+        delete current;
+        return right;
+      }
+      if (current->getRight() == nullptr)
+      {
+        Node<K, V>* left = current->getLeft();
+
+        if (left) 
+          left->setParent(current->getParent());
+
+        delete current;
+        return left;
+      }
+
+      Node<K, V>* succ = Min(current->getRight());
+
+      current->setKey(succ->getKey());
+      current->setData(succ->getData());
+      current->setRight(removeNode(current->getRight(), succ->getKey()));
+
+      if (current->getRight()) 
+        current->getRight()->setParent(current);
+    }
+
+    return current;
+  }
+
 public:
   SearchTree() { root = nullptr; }
 
@@ -367,12 +437,16 @@ public:
     if (N->getKey() < Current->getKey())
     {
       Current->setLeft(Add_R(N, Current->getLeft()));
-      if (Current->getLeft()) Current->getLeft()->setParent(Current);
+
+      if (Current->getLeft()) 
+        Current->getLeft()->setParent(Current);
     }
     else if (N->getKey() > Current->getKey())
     {
       Current->setRight(Add_R(N, Current->getRight()));
-      if (Current->getRight()) Current->getRight()->setParent(Current);
+
+      if (Current->getRight()) 
+        Current->getRight()->setParent(Current);
     }
     else
     {
@@ -385,7 +459,10 @@ public:
   virtual Node<K, V>* Add_R(Node<K, V>* N)
   {
     root = Add_R(N, root);
-    if (root) root->setParent(nullptr);
+
+    if (root) 
+      root->setParent(nullptr);
+
     return root;
   }
 
@@ -395,7 +472,9 @@ public:
 
     Node<K, V>* N = new Node<K, V>(key, data);
     root = Add_R(N, root);
-    if (root) root->setParent(nullptr);
+
+    if (root) 
+      root->setParent(nullptr);
   }
 
   virtual Node<K, V>* Find(K key, Node<K, V>* Current)
@@ -429,6 +508,19 @@ public:
     return Current;
   }
 
+  virtual TreeIterator<K, V> remove(K key)
+  {
+    Node<K, V>* found = Find(key, root);
+    if (found == nullptr) return end();
+
+    root = removeNode(root, key);
+
+    if (root) 
+      root->setParent(nullptr);
+
+    return TreeIterator<K, V>(successorNode(key));
+  }
+
   TreeIterator<K, V> begin()  { return TreeIterator<K, V>(Min()); }
   TreeIterator<K, V> end()    { return TreeIterator<K, V>(nullptr); }
   TreeIterator<K, V> rbegin() { return TreeIterator<K, V>(Max()); }
@@ -453,8 +545,10 @@ protected:
   void updateHeight(Node<K, V>* n)
   {
     if (!n) return;
+
     int hl = height(n->getLeft());
     int hr = height(n->getRight());
+
     n->setHeight(1 + (hl > hr ? hl : hr));
   }
 
@@ -471,7 +565,9 @@ protected:
     x->setRight(y);
     y->setLeft(T2);
 
-    if (T2) T2->setParent(y);
+    if (T2)
+      T2->setParent(y);
+
     x->setParent(y->getParent());
     y->setParent(x);
 
@@ -488,7 +584,9 @@ protected:
     y->setLeft(x);
     x->setRight(T2);
 
-    if (T2) T2->setParent(x);
+    if (T2) 
+      T2->setParent(x);
+
     y->setParent(x->getParent());
     x->setParent(y);
 
@@ -525,6 +623,60 @@ protected:
     return n;
   }
 
+  Node<K, V>* removeNode(Node<K, V>* current, K key) override
+  {
+    if (current == nullptr) return nullptr;
+
+    if (key < current->getKey())
+    {
+      current->setLeft(removeNode(current->getLeft(), key));
+
+      if (current->getLeft()) 
+        current->getLeft()->setParent(current);
+    }
+    else if (key > current->getKey())
+    {
+      current->setRight(removeNode(current->getRight(), key));
+
+      if (current->getRight()) 
+        current->getRight()->setParent(current);
+    }
+    else
+    {
+      if (current->getLeft() == nullptr)
+      {
+        Node<K, V>* right = current->getRight();
+
+        if (right) 
+          right->setParent(current->getParent());
+
+        delete current;
+        return right;
+      }
+      if (current->getRight() == nullptr)
+      {
+        Node<K, V>* left = current->getLeft();
+
+        if (left) 
+          left->setParent(current->getParent());
+
+        delete current;
+        return left;
+      }
+
+      Node<K, V>* succ = this->Min(current->getRight());
+
+      current->setKey(succ->getKey());
+      current->setData(succ->getData());
+      current->setRight(removeNode(current->getRight(), succ->getKey()));
+
+      if (current->getRight()) 
+        current->getRight()->setParent(current);
+    }
+
+    return balance(current);
+  }
+
 public:
   AVLTree() : SearchTree<K, V>() {}
 
@@ -536,12 +688,16 @@ public:
     if (N->getKey() < Current->getKey())
     {
       Current->setLeft(Add_R(N, Current->getLeft()));
-      if (Current->getLeft()) Current->getLeft()->setParent(Current);
+
+      if (Current->getLeft()) 
+        Current->getLeft()->setParent(Current);
     }
     else if (N->getKey() > Current->getKey())
     {
       Current->setRight(Add_R(N, Current->getRight()));
-      if (Current->getRight()) Current->getRight()->setParent(Current);
+
+      if (Current->getRight()) 
+        Current->getRight()->setParent(Current);
     }
     else
     {
@@ -564,12 +720,16 @@ protected:
     if (N->getKey() < Current->getKey())
     {
       Current->setLeft(Add_Multi(N, Current->getLeft()));
-      if (Current->getLeft()) Current->getLeft()->setParent(Current);
+
+      if (Current->getLeft()) 
+        Current->getLeft()->setParent(Current);
     }
     else
     {
       Current->setRight(Add_Multi(N, Current->getRight()));
-      if (Current->getRight()) Current->getRight()->setParent(Current);
+
+      if (Current->getRight()) 
+        Current->getRight()->setParent(Current);
     }
 
     return this->balance(Current);
@@ -593,7 +753,10 @@ public:
   Node<K, V>* Add_R(Node<K, V>* N) override
   {
     this->root = Add_Multi(N, this->root);
-    if (this->root) this->root->setParent(nullptr);
+
+    if (this->root) 
+      this->root->setParent(nullptr);
+
     return this->root;
   }
 
@@ -601,7 +764,9 @@ public:
   {
     Node<K, V>* N = new Node<K, V>(key, data);
     this->root = Add_Multi(N, this->root);
-    if (this->root) this->root->setParent(nullptr);
+
+    if (this->root) 
+      this->root->setParent(nullptr);
   }
 
   SortedStack<V> operator[](const K& key)
